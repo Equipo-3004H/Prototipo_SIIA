@@ -1,9 +1,8 @@
 from fastapi import FastAPI, File, UploadFile, HTTPException, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import PlainTextResponse, JSONResponse
+from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
-from pydantic import BaseModel
 
 app = FastAPI()
 
