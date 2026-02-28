@@ -30,4 +30,3 @@ else
     echo "Unsupported operating system: $OSTYPE"
     exit 1
 fi
-#pip install whisper-live
