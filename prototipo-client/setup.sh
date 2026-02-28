@@ -24,7 +24,7 @@ elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
         dnf install -y portaudio-devel wget
     else
         echo "Detected Linux (assuming Debian/Ubuntu), using apt-get for installation"
-        sudo apt-get install -y portaudio19-dev wget
+        apt-get install -y portaudio19-dev wget
     fi
 else
     echo "Unsupported operating system: $OSTYPE"
