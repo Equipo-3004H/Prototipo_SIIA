@@ -1,9 +1,13 @@
 import av
 import streamlit as st
-from streamlit_webrtc import webrtc_streamer
+from streamlit_webrtc import webrtc_streamer, RTCConfiguration
 
 st.header("Monitoreo y detección de lenguaje agresivo", divider=True) 
 
+# Configuración de STUN/TURN para WebRTC en producción
+rtc_configuration = RTCConfiguration(
+    {"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]}
+)
 
 # Control de volumen para el audio
 volume = st.slider("Volumen", 0.0, 2.0, 1.0, 0.1)
@@ -21,6 +25,7 @@ def audio_frame_callback(frame: av.AudioFrame) -> av.AudioFrame:
 # Iniciar el streamer de audio con la función de callback para procesar los frames de audio
 webrtc_streamer(
     key="audio",
+    rtc_configuration=rtc_configuration,
     audio_frame_callback=audio_frame_callback,
     media_stream_constraints={"video": False, "audio": True},
 )
