@@ -85,21 +85,41 @@ Se utilizó el modelo RoBERTuito, un modelo preentrenado en español basado en l
 
 ## 5. Estructura del la carpeta
 
-```
 nlp-inference-api/
+├── app/
+│   ├── _init_.py
+│   ├── main.py
+│   ├── config.py
+│   ├── inference.py
+│   ├── model_loader.py
+│   └── schemas.py
+│
+├── best_model/
+│
 ├── model_training/
 │   └── Fine-tuning_RoBERTuito.ipynb
-│  
-├── Dockerfile
+│
+├── resources/
+├── .env
 ├── .gitignore
-├── main.py
+├── Dockerfile
 ├── README.md
 └── requirements.txt
-```
+
 - **nlp-inference-api/**: implementa el API REST que realiza el proceso de inferencia del modelo utilizando Fast API para exponer el endpoint.  
+- **app**: carpeta donde se almacena la API
+  - `__init__.py`: permite que la carpeta app sea tratada como un módulo de Python
+  - `main.py`: archivo donde se definen los endpoints del servicio. 
+  - `config.py`: archivo de configuración donde se definen las variables globales.
+  - `inference.py`: archivo que contiene la lógica de inferencia del modelo.
+  - `model_loader.py`: archivo que sirve para cargar el modelo y el tokenizer desde la carpeta best_model o desde Hugging Face Hub.
+  - `schemas.py`: define los esquemas de datos JSON utilizando por los datos de entrada y salida del API.
+- **best_model/**: almacena el modelo entrenado y los archivos necesarios para realizar la inferencia.
 - **model_training/**: almacena los notebooks relacionados al entrenamiento del modelo.
   - `Fine-tuning_RoBERTuito.ipynb`: notebook donde se realiza el proceso de carga, limpieza y preprocesamiento de los necesarios necesarios para el entrenamiento del modelo, asi como la tokenización de los datos, carga y configuración de los parámetros de entrenamiento del modelo y el almacenamiento del mejor modelo en el hub de hugging face para la posterior inferencia dentro del API. 
-- `main.py`: punto de entrada donde se definen los endpoints del servicio.   
+- `.env`: almacena los tokens de acceso o configuraciones del entorno.
+- `.gitignore`: archivo que define los archivos y carpetas que no deben subirse al repositorio.
+- `Dockerfile`: contiene la imagen Docker utilizada para desplegar la API.
 - `requirements.txt`: lista las dependencias necesarias para ejecutar el backend. 
 - **README.md**: documentación del api.
 
@@ -150,6 +170,24 @@ cd Prototipo-SIIA/nlp-inference-api
 
 ```
 pip install -r requirements.txt
+```
+
+### Configurar los variables de entorno
+
+
+| Variable | Descripción |
+|---------|-------------|
+| HF_HOME | Directorio donde Hugging Face almacenará el caché de modelos. |
+| TRANSFORMERS_CACHE | Directorio donde Transformers guardará los modelos descargados. |
+| HF_HUB_DISABLE_SYMLINKS_WARNING | Desactiva advertencias relacionadas con symlinks en Windows. |
+| HF_HUB_DOWNLOAD_TIMEOUT | Aumenta el tiempo de espera para descargar archivos grandes del modelo. |
+
+Antes de ejecutar la API, configurar las variables 
+```
+HF_HOME=C:\Users\usuario\hf_cache
+TRANSFORMERS_CACHE=C:\Users\usuario\hf_cache
+HF_HUB_DISABLE_SYMLINKS_WARNING=1
+HF_HUB_DOWNLOAD_TIMEOUT=600
 ```
 
 ---
