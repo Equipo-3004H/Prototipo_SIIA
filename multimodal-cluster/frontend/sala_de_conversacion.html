@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Multimodal AI - Sala de Conversación</title>
+    <style>
+        body { font-family: system-ui, -apple-system, sans-serif; background-color: #f4f4f9; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        button { padding: 12px 24px; margin: 5px 0; cursor: pointer; border: none; border-radius: 6px; background: #2563eb; color: white; font-weight: bold; width: 100%; transition: background 0.2s;}
+        button:disabled { background: #cbd5e1; cursor: not-allowed; }
+        button.danger { background: #ef4444; }
+        .status-box { margin-top: 20px; padding: 20px; border-radius: 8px; background: #f8fafc; border: 1px solid #e2e8f0; }
+        
+        /* Diseño de columnas para botones y estado */
+        .status-layout {
+            display: flex;
+            gap: 20px;
+            align-items: center; 
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px dashed #cbd5e1; 
+        }
+        .status-buttons {
+            flex: 1; 
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .status-buttons button { margin: 0; }
+        .status-indicators { flex: 1; }
+        .status-indicators p { margin: 8px 0; }
+
+        @media (max-width: 480px) {
+            .status-layout {
+                flex-direction: column;
+                align-items: stretch;
+            }
+        }
+
+        /* Estilos de los medidores */
+        .meter-bg { background: #e2e8f0; height: 12px; border-radius: 6px; overflow: hidden; margin-top: 10px; margin-bottom: 20px;}
+        .meter { height: 100%; background: #10b981; width: 0%; transition: width 0.05s linear; }
+        .meter-peak { background: #ef4444; }
+        
+        /* Estilos del Slider */
+        .slider-container { margin-top: 15px; padding-top: 15px; border-top: 1px dashed #cbd5e1; }
+        .slider-label { display: flex; justify-content: space-between; font-weight: bold; font-size: 14px; margin-bottom: 8px; color: #334155; }
+        input[type=range] { width: 100%; cursor: pointer; }
+
+        /* NUEVO: Contenedor del Checkbox de Logs */
+        .debug-container { margin-top: 15px; padding-top: 15px; border-top: 1px dashed #cbd5e1; display: flex; align-items: center; }
+        .debug-container label { font-size: 14px; color: #475569; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 8px; }
+
+        /* Estilos de la Pantalla de Transcripción */
+        .transcription-container {
+            margin-top: 30px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            border: 1px solid #dee2e6;
+        }
+
+        .transcription-container h2 {
+            margin-top: 0;
+            font-size: 1.2rem;
+            color: #495057;
+            border-bottom: 2px solid #e9ecef;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+
+        .final-text {
+            min-height: 80px;
+            max-height: 250px;
+            overflow-y: auto;
+            font-size: 1.1rem;
+            line-height: 1.5;
+            color: #212529;
+            margin-bottom: 10px;
+            padding-right: 10px;
+        }
+
+        .partial-text {
+            min-height: 30px;
+            font-size: 1.1rem;
+            font-style: italic;
+            color: #6c757d; 
+            border-left: 3px solid #007bff; 
+            padding-left: 10px;
+            transition: all 0.3s ease;
+        }
+
+        .placeholder-text { color: #adb5bd; font-style: italic; }
+
+        .final-phrase {
+            display: block;
+            width: fit-content;
+            max-width: 95%;
+            margin-bottom: 12px;
+            margin-right: 5px;
+            transition: background-color 1s ease; 
+            background-color: #e8f4fd;
+            border-radius: 8px; 
+            padding: 10px 14px; 
+            line-height: 1.5;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05); 
+        }
+        
+        .final-phrase.settled { background-color: transparent; }
+
+        .safe-phrase {
+            background-color: #d1fae5 !important; 
+            color: #065f46;
+            border: 1px solid #34d399;
+        }
+        .aggressive-phrase {
+            background-color: #fee2e2 !important; 
+            color: #991b1b;
+            border: 1px solid #f87171;
+            font-weight: bold;
+        }
+
+        .pending-phrase {
+            background-color: #f1f5f9 !important; 
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
+
+        .score-badge {
+            font-size: 0.75rem;
+            background: rgba(255, 255, 255, 0.7);
+            border-radius: 4px;
+            padding: 2px 5px;
+            margin-left: 5px;
+            color: #475569;
+            font-weight: normal;
+        }
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>🎙️ Interfaz de Adquisición</h2>
+        
+        <div class="status-box">
+            <div class="status-layout">
+                <div class="status-buttons">
+                    <button id="btnConnect">1. Conectar al Gateway</button>
+                    <button id="btnMic" disabled>2. Activar Micrófono</button>
+                </div>
+                
+                <div class="status-indicators">
+                    <p style="margin-top:0;"><strong>🌐 Red:</strong> <span id="wsStatus" style="color: #64748b;">Desconectado</span></p>
+                    <p><strong>🎤 Micrófono:</strong> <span id="micStatus" style="color: #64748b;">Inactivo</span></p>
+                    <p style="margin-bottom:0;"><strong>🛑 Noise Gate:</strong> <span id="gateStatus" style="color: #64748b;">Cerrado</span></p>
+                </div>
+            </div>
+            
+            <p style="font-size: 12px; font-weight: bold; color: #64748b; margin-bottom: 5px; margin-top: 15px;">VOLUMEN ACTUAL</p>
+            <div class="meter-bg">
+                <div class="meter" id="volumeMeter"></div>
+            </div>
+
+            <div class="slider-container">
+                <div class="slider-label">
+                    <span>🎚️ Umbral de Sensibilidad (Threshold)</span>
+                    <span id="thresholdVal" style="color: #2563eb;">0.020</span>
+                </div>
+                <input type="range" id="thresholdSlider" min="0.001" max="0.100" step="0.001" value="0.020">
+                <p style="font-size: 11px; color: #94a3b8; margin-top: 5px;">Mueve a la derecha para que el micrófono sea menos sensible (exija hablar más fuerte).</p>
+            </div>
+
+            <div class="debug-container">
+                <label>
+                    <input type="checkbox" id="chkDebugLogs"> Habilitar Consola de Depuración (F12)
+                </label>
+            </div>
+        </div>
+
+        <div class="transcription-container" style="margin-top: 15px;">
+            <div id="final-text-area" class="final-text">
+                <span class="placeholder-text">El texto final aparecerá aquí...</span>
+            </div>
+            <div id="partial-text-area" class="partial-text"></div>
+        </div>
+
+    </div>
+
+    <script>
+        let ws, audioContext, mediaStream, processor;
+        let isRecording = false;
+        let currentSessionId = ""; // 👈 NUEVA VARIABLE para session_id
+        window.latencyMetrics = []; 
+
+        // Configuración de Red
+        const WS_URL = "ws://localhost/ws/usr_local_test"; // Cambiar a wss://TU_IP.nip.io en GCP
+	//const WS_URL = "wss://34.26.189.156.nip.io/ws/usr_gcp_test"; // PARA CORRER en GCP
+        let NOISE_THRESHOLD = 0.020; 
+
+        // Elementos de UI
+        const btnConnect = document.getElementById('btnConnect');
+        const btnMic = document.getElementById('btnMic');
+        const slider = document.getElementById('thresholdSlider');
+        const chkDebugLogs = document.getElementById('chkDebugLogs'); // Capturamos el checkbox
+        const uiElements = {
+            ws: document.getElementById('wsStatus'),
+            mic: document.getElementById('micStatus'),
+            gate: document.getElementById('gateStatus'),
+            meter: document.getElementById('volumeMeter'),
+            thresholdVal: document.getElementById('thresholdVal')
+        };
+
+        slider.oninput = function() {
+            NOISE_THRESHOLD = parseFloat(this.value);
+            uiElements.thresholdVal.innerText = NOISE_THRESHOLD.toFixed(3);
+        };
+
+        // Función que envía los logs a la consola de Chrome si el checkbox está activo
+        function addLog(msg) {
+            if (chkDebugLogs.checked) {
+                console.log(msg);
+            }
+        }
+
+        function float32ToPCM16Base64(float32Array) {
+            const int16Array = new Int16Array(float32Array.length);
+            for (let i = 0; i < float32Array.length; i++) {
+                let s = Math.max(-1, Math.min(1, float32Array[i]));
+                int16Array[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+            }
+            const uint8Array = new Uint8Array(int16Array.buffer);
+            let binaryString = '';
+            const chunkSize = 8192;
+            for (let i = 0; i < uint8Array.length; i += chunkSize) {
+                const chunk = uint8Array.subarray(i, i + chunkSize);
+                binaryString += String.fromCharCode.apply(null, chunk);
+            }
+            return btoa(binaryString);
+        }
+
+        btnConnect.onclick = () => {
+            ws = new WebSocket(WS_URL);
+            
+            ws.onopen = () => {
+                uiElements.ws.innerHTML = "Conectado 🟢";
+                uiElements.ws.style.color = "#10b981";
+                btnConnect.disabled = true;
+                btnMic.disabled = false;
+                addLog("✅ Conectado al Gateway");
+            };
+
+            const finalTextArea = document.getElementById('final-text-area');
+            const partialTextArea = document.getElementById('partial-text-area');
+
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    
+                    if (data.text) {
+                        if (data.timestamp) {
+                            const now = Date.now() / 1000;
+                            const latencyMs = (now - data.timestamp) * 1000;
+                            window.latencyMetrics.push(latencyMs);
+                        }
+               
+                        // 🟢 CASO 1: Viene del ENSAMBLE MULTIMODAL
+                        if (data.final_score !== undefined) {
+                            const activeBubble = document.getElementById('bubble_' + data.session_id); // 👈 Búsqueda exacta
+                            
+                            if (activeBubble) {
+                                activeBubble.removeAttribute('id');
+                                activeBubble.classList.remove('pending-phrase');
+        
+                                const isSarcastic = data.metadata?.is_sarcastic || false;
+                                const tensionScore = data.metadata?.tension_acustica || 0;
+                                const textScore = data.metadata?.lexical_score || 0;
+        
+                                const finalPercent = (data.final_score * 100).toFixed(1);
+                                const tensionPercent = (tensionScore * 100).toFixed(1);
+                                const textPercent = (textScore * 100).toFixed(1);
+
+                                let veredictoHTML = "";
+        
+                                if (isSarcastic) {
+                                    // Aplicamos la clase de agresión
+                                    activeBubble.classList.add('aggressive-phrase'); 
+            
+                                    // 👇 NUEVA ESTRUCTURA: Badge de sarcasmo arriba y métricas abajo
+                                    veredictoHTML = `
+                                        <div style="width: 100%; margin-bottom: 8px;">
+                                            <span class="score-badge" style="background: rgba(255,255,255,0.9); font-weight: bold; border: 2px solid #991b1b; color: #991b1b; display: inline-block;">
+                                                🎭 SARCASMO DETECTADO
+                                            </span>
+                                        </div>
+                                        <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                                            <span class="score-badge" style="background: rgba(255,255,255,0.9); font-weight: bold; border: 1px solid rgba(0,0,0,0.1);">
+                                                ⚖️ Riesgo Final: ${finalPercent}%
+                                            </span>
+                                            <span class="score-badge">🔊 Tensión Voz: ${tensionPercent}%</span>
+                                            <span class="score-badge">📝 Text (NEG): ${textPercent}%</span>
+                                        </div>
+                                    `;
+                                } else if (data.is_aggressive) {
+                                    activeBubble.classList.add('aggressive-phrase');
+                                    veredictoHTML = `
+                                        <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                                            <span class="score-badge" style="background: rgba(255,255,255,0.9); font-weight: bold; border: 1px solid rgba(0,0,0,0.1);">
+                                                ⚖️ Riesgo Final: ${finalPercent}%
+                                            </span>
+                                            <span class="score-badge">🔊 Tensión Voz: ${tensionPercent}%</span>
+                                            <span class="score-badge">📝 Text (NEG): ${textPercent}%</span>
+                                        </div>
+                                    `;
+                                } else {
+                                    activeBubble.classList.add('safe-phrase');
+                                    veredictoHTML = `
+                                        <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                                            <span class="score-badge" style="background: rgba(255,255,255,0.9); font-weight: bold; border: 1px solid rgba(0,0,0,0.1);">
+                                                ⚖️ Riesgo Final: ${finalPercent}%
+                                            </span>
+                                            <span class="score-badge">🔊 Tensión Voz: ${tensionPercent}%</span>
+                                            <span class="score-badge">📝 Text (NEG): ${textPercent}%</span>
+                                        </div>
+                                    `;
+                                }
+
+                                activeBubble.innerHTML = `
+                                    <div style="margin-bottom: 10px; font-size: 1.05rem;">${data.text}</div>
+                                    ${veredictoHTML}
+                                `;
+    
+                                finalTextArea.scrollTop = finalTextArea.scrollHeight;
+                            }
+                        }
+                        // 🟡 CASO 2: Viene de WHISPER como PARCIAL
+                        else if (data.is_final === false || data.completed === false) {
+                            partialTextArea.innerText = data.text + " ✍️...";
+                        } 
+                        // ⚪ CASO 3: Viene de WHISPER como FINAL pero el Ensamble aún no responde
+                        else if (data.is_final === true || data.completed === true) {
+                            partialTextArea.innerText = ""; 
+                            const placeholder = finalTextArea.querySelector('.placeholder-text');
+                            if (placeholder) placeholder.remove();
+
+                            const newPhrase = document.createElement('div');
+                            newPhrase.className = 'final-phrase pending-phrase';
+                            newPhrase.id = 'bubble_' + data.session_id; // 👈 ID Dinámico!
+                            
+                            newPhrase.innerHTML = `
+                                <div style="margin-bottom: 8px; font-size: 1.05rem;">
+                                    ${data.text} <span style="font-size: 0.85rem; color: #94a3b8; font-style: italic;"> ⏳ Evaluando...</span>
+                                </div>
+                            `;
+                            
+                            finalTextArea.appendChild(newPhrase);
+                            finalTextArea.scrollTop = finalTextArea.scrollHeight;
+                        }
+                    } else if (data.status) {
+                        addLog("🌐 " + data.status);
+                    }
+                } catch (e) {
+                    addLog("⚠️ Mensaje no JSON: " + event.data);
+                }
+            };
+         
+            ws.onclose = () => {
+                uiElements.ws.innerHTML = "Desconectado 🔴";
+                btnConnect.disabled = false;
+                btnMic.disabled = true;
+                addLog("🔴 Conexión cerrada");
+                if(isRecording) toggleMic();
+            };
+        };
+
+        btnMic.onclick = () => toggleMic();
+
+        async function toggleMic() {
+            if (isRecording) {
+                processor.disconnect();
+                mediaStream.getTracks().forEach(t => t.stop());
+                audioContext.close();
+                
+                isRecording = false;
+                btnMic.innerText = "2. Activar Micrófono";
+                btnMic.classList.remove('danger');
+                uiElements.mic.innerHTML = "Inactivo";
+                uiElements.meter.style.width = "0%";
+                uiElements.meter.classList.remove('meter-peak');
+                uiElements.gate.innerHTML = "Cerrado";
+                addLog("🛑 Micrófono apagado.");
+                return;
+            }
+
+            try {
+                const finalTextArea = document.getElementById('final-text-area');
+                if (finalTextArea) {
+                    finalTextArea.innerHTML = '<span class="placeholder-text">El texto final aparecerá aquí...</span>';
+                }
+                window.latencyMetrics = []; 
+
+                mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+                const source = audioContext.createMediaStreamSource(mediaStream);
+                
+                processor = audioContext.createScriptProcessor(4096, 1, 1);
+                source.connect(processor);
+                processor.connect(audioContext.destination);
+
+                let audioBuffer = [];
+                let silenceTimer = null;
+                let lastPartialTime = Date.now();
+		let liveChunkCounter = 0; // 👈 NUEVO: Contador persistente por frase
+
+                const sendAudioToBackend = (isFinal) => {
+                    if (audioBuffer.length === 0) return;
+                    
+                    let totalLength = audioBuffer.reduce((acc, val) => acc + val.length, 0);
+                    let mergedBuffer = new Float32Array(totalLength);
+                    let offset = 0;
+                    for(let chunk of audioBuffer) {
+                        mergedBuffer.set(chunk, offset);
+                        offset += chunk.length;
+                    }
+                    
+                    const base64Audio = float32ToPCM16Base64(mergedBuffer);
+                    liveChunkCounter++; 
+                    const payload = {
+                        "session_id": currentSessionId, // 👈 EL identificador para los paquetes
+                        "chunk_id": liveChunkCounter, // 👈 Conteo actual
+                        "timestamp": Date.now() / 1000,
+                        "is_final": isFinal,
+                        "audio_b64": base64Audio
+                    };
+
+                    if (isFinal) {
+                        payload.total_chunks = liveChunkCounter; // 👈 Informamos el total al final
+                        liveChunkCounter = 0; // Reset para la siguiente frase
+                    }
+
+                    if(ws && ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify(payload));
+                    }
+                };
+
+                processor.onaudioprocess = (e) => {
+                    const float32Array = e.inputBuffer.getChannelData(0);
+                    
+                    let sumSquares = 0;
+                    for (let i = 0; i < float32Array.length; i++) {
+                        sumSquares += float32Array[i] * float32Array[i];
+                    }
+                    const rms = Math.sqrt(sumSquares / float32Array.length);
+
+                    uiElements.meter.style.width = Math.min(100, rms * 500) + '%';
+                    
+                    if (rms > NOISE_THRESHOLD) {
+                        uiElements.gate.innerHTML = "Abierto 🟢 (Hablando...)";
+                        uiElements.meter.classList.add('meter-peak');
+
+                        // 👇 NUEVO: Generamos el ID solo si es una frase nueva (audioBuffer vacío)
+                        if (audioBuffer.length === 0) {
+                            currentSessionId = "sess_" + Date.now() + "_" + Math.random().toString(36).substr(2, 5);
+                            addLog(`🆕 Nueva frase iniciada: ${currentSessionId}`);
+                        }
+                        
+                        audioBuffer.push(new Float32Array(float32Array));
+                        clearTimeout(silenceTimer);
+                        
+                        if (Date.now() - lastPartialTime > 1000) {
+                            sendAudioToBackend(false);
+                            lastPartialTime = Date.now();
+                        }
+                        
+                        silenceTimer = setTimeout(() => {
+                            uiElements.gate.innerHTML = "Procesando ⏳ (Final)";
+                            sendAudioToBackend(true);
+                            audioBuffer = []; 
+                            uiElements.gate.innerHTML = "Cerrado 🛑 (Esperando voz)";
+                        }, 1000);
+                        
+                    } else {
+                        uiElements.meter.classList.remove('meter-peak');
+                    }
+                };
+
+                isRecording = true;
+                btnMic.innerText = "3. Detener Micrófono";
+                btnMic.classList.add('danger');
+                uiElements.mic.innerHTML = "Grabando 🎙️";
+                addLog("🎤 Grabación iniciada. Habla una oración completa.");
+
+            } catch (err) {
+                addLog("❌ Error: " + err.message);
+            }
+        }
+    </script>
+</body>
+</html>

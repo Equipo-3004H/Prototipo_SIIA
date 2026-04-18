@@ -1,0 +1,131 @@
+version: '3.8'
+
+services:
+  # 1. El Proxy Inverso (Caddy) - El Guardia de Seguridad
+  caddy_proxy:
+    image: caddy:2-alpine
+    container_name: caddy_proxy
+    restart: unless-stopped
+    ports:
+      - "80:80"     # Puerto HTTP estándar (Caddy lo redirigirá a HTTPS)
+      - "443:443"   # Puerto HTTPS seguro
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile  # Inyecta tu configuración
+      - ./frontend:/var/www/html          # Inyecta tu código HTML/JS
+      - caddy_data:/data                  # Guarda los certificados SSL aquí
+      - caddy_config:/config
+    depends_on:
+      - ws_gateway
+    networks:
+      - ai_network
+
+  # 2. El Bus de Mensajes (Redis)
+  redis_broker:
+    image: redis:7.0-alpine
+    container_name: redis_broker
+    restart: unless-stopped
+    # 👇 NUEVO: Aumentamos el límite de memoria del buffer de 32MB a 512MB
+    command: redis-server --client-output-buffer-limit "pubsub 2048mb 512mb 360"
+    # 👆 FIN DEL CAMBIO
+    ports:
+      - "6379:6379" # Para Pruebas locales, quitarlo en producción.
+    networks:
+      - ai_network
+
+  # 3. La Puerta de Entrada (WebSocket Gateway)
+  ws_gateway:
+    build: ./gateway
+    container_name: ws_gateway
+    restart: unless-stopped
+    # El puerto 8000 YA NO se expone aquí, solo es visible dentro de ai_network
+    environment:
+      - REDIS_HOST=redis_broker
+      #- REDIS_PORT=6379
+    depends_on:
+      - redis_broker
+    networks:
+      - ai_network
+
+  # 4. ASR Worker - Quien realiza la transcripción
+  asr_worker:
+    build: ./asr_worker
+    container_name: asr_worker
+    restart: unless-stopped
+    environment:
+      - REDIS_HOST=redis_broker
+    depends_on:
+      - redis_broker
+    # Este bloque inyecta la GPU NVIDIA al contenedor
+    #deploy:
+    #  resources:
+    #    reservations:
+    #      devices:
+    #        - driver: nvidia
+    #          count: 1
+    #          capabilities: [gpu]
+    networks:
+      - ai_network
+
+  # 5. Cerebro Semántico (NLP) - RoBERTuito
+  robertuito_worker:
+    build: ./robertuito_worker
+    container_name: robertuito_worker
+    restart: unless-stopped
+    environment:
+      - REDIS_HOST=redis_broker
+    depends_on:
+      - redis_broker
+      - asr_worker  # Espera a que Whisper esté listo
+    # 👇 NUEVO: Inyección de la GPU NVIDIA T4
+    #deploy:
+    #  resources:
+    #    reservations:
+    #      devices:
+    #        - driver: nvidia
+    #          count: 1
+    #          capabilities: [gpu]
+    networks:
+      - ai_network
+
+  # 6. Oído Emocional Acústico - Wav2Vec
+  wav2vec_worker:
+    build: ./wav2vec_worker
+    container_name: wav2vec_worker
+    restart: unless-stopped
+    environment:
+      - REDIS_HOST=redis_broker
+    depends_on:
+      - redis_broker
+      - ws_gateway
+    # Para inyectar la GPU T4
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+    networks:
+      - ai_network
+
+  # 7. Director de Orquesta - Ensamble Multimodal
+  ensemble_worker:
+    build: ./ensemble_worker
+    container_name: ensemble_worker
+    restart: unless-stopped
+    environment:
+      - REDIS_HOST=redis_broker
+    depends_on:
+      - redis_broker
+      - robertuito_worker
+      - wav2vec_worker
+    networks:
+      - ai_network
+
+networks:
+  ai_network:
+    driver: bridge
+
+volumes:
+  caddy_data:
+  caddy_config:

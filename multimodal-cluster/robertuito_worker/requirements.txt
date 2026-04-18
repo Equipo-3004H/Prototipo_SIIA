@@ -1,0 +1,10 @@
+# Intermediario de mensajes
+redis==5.0.3
+
+# Core de IA para NLP en Español
+pysentimiento==0.7.3
+
+# Dependencias subyacentes de Machine Learning
+# (Forzamos versiones estables para evitar sorpresas en producción)
+torch>=2.0.0
+transformers>=4.30.0

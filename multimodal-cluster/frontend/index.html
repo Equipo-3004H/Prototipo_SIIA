@@ -1,0 +1,1115 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Multimodal AI - Fase 2 (Avanzada)</title>
+    <style>
+        body { font-family: system-ui, -apple-system, sans-serif; background-color: #f4f4f9; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        button { padding: 12px 24px; margin: 5px 0; cursor: pointer; border: none; border-radius: 6px; background: #2563eb; color: white; font-weight: bold; width: 100%; transition: background 0.2s;}
+        button:disabled { background: #cbd5e1; cursor: not-allowed; }
+        button.danger { background: #ef4444; }
+        .status-box { margin-top: 20px; padding: 20px; border-radius: 8px; background: #f8fafc; border: 1px solid #e2e8f0; }
+        
+        /* Diseño de columnas para botones y estado */
+        .status-layout {
+            display: flex;
+            gap: 20px;
+            align-items: center; /* Centra verticalmente los botones con los textos */
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px dashed #cbd5e1; /* Una sutil línea separadora */
+        }
+        .status-buttons {
+            flex: 1; /* Toma la mitad del espacio */
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .status-buttons button {
+            margin: 0; /* Quitamos el margen por defecto para que el gap haga su trabajo */
+        }
+        .status-indicators {
+            flex: 1; /* Toma la otra mitad del espacio */
+        }
+        .status-indicators p {
+            margin: 8px 0; /* Espaciado uniforme entre los textos de estado */
+        }
+
+        /* Si alguien lo abre en celular, apilamos todo hacia abajo automáticamente */
+        @media (max-width: 480px) {
+            .status-layout {
+                flex-direction: column;
+                align-items: stretch;
+            }
+        }
+
+        /* Estilos de los medidores */
+        .meter-bg { background: #e2e8f0; height: 12px; border-radius: 6px; overflow: hidden; margin-top: 10px; margin-bottom: 20px;}
+        .meter { height: 100%; background: #10b981; width: 0%; transition: width 0.05s linear; }
+        .meter-peak { background: #ef4444; } /* Cambia a rojo si detecta voz */
+        
+        /* Estilos del Slider */
+        .slider-container { margin-top: 15px; padding-top: 15px; border-top: 1px dashed #cbd5e1; }
+        .slider-label { display: flex; justify-content: space-between; font-weight: bold; font-size: 14px; margin-bottom: 8px; color: #334155; }
+        input[type=range] { width: 100%; cursor: pointer; }
+        
+        pre { background: #1e293b; color: #10b981; padding: 15px; border-radius: 8px; height: 150px; overflow-y: auto; font-size: 13px; margin-top: 10px; }
+
+        /* Estilos de la Pantalla de Transcripción */
+        .transcription-container {
+            margin-top: 30px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            border: 1px solid #dee2e6;
+        }
+
+        .transcription-container h2 {
+            margin-top: 0;
+            font-size: 1.2rem;
+            color: #495057;
+            border-bottom: 2px solid #e9ecef;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+
+        .final-text {
+            min-height: 80px;
+	    max-height: 250px;
+	    overflow-y: auto;
+            font-size: 1.1rem;
+            line-height: 1.5;
+            color: #212529;
+            margin-bottom: 10px;
+	    padding-right: 10px;
+        }
+
+        .partial-text {
+            min-height: 30px;
+            font-size: 1.1rem;
+            font-style: italic;
+            color: #6c757d; /* Color gris para el texto temporal */
+            border-left: 3px solid #007bff; /* Línea azul indicando actividad */
+            padding-left: 10px;
+            transition: all 0.3s ease;
+        }
+
+        .placeholder-text {
+            color: #adb5bd;
+            font-style: italic;
+        }
+
+        .final-phrase {
+            display: block;
+            width: fit-content;
+            max-width: 95%;
+            Margin-bottom: 12px;
+            margin-right: 5px;
+            transition: background-color 1s ease; /* Efecto de "sellado" */
+            background-color: #e8f4fd;
+            border-radius: 8px; /* 👈 Bordes más redondeados tipo chat */
+            padding: 10px 14px; /* 👈 Más espacio interno para que respire el texto */
+            line-height: 1.5;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05); /* Sutil sombra */
+        }
+        
+        /* Efecto para que el fondo azul se desvanezca suavemente */
+        .final-phrase.settled {
+            background-color: transparent;
+        }
+
+        /* 👇 NUEVOS ESTILOS PARA LA FASE 6 (VEREDICTO DEL ENSAMBLE) 👇 */
+        .safe-phrase {
+            background-color: #d1fae5 !important; /* Verde claro */
+            color: #065f46;
+            border: 1px solid #34d399;
+        }
+        .aggressive-phrase {
+            background-color: #fee2e2 !important; /* Rojo claro */
+            color: #991b1b;
+            border: 1px solid #f87171;
+            font-weight: bold;
+        }
+
+        .pending-phrase {
+            background-color: #f1f5f9 !important; /* Gris muy claro */
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
+
+        .score-badge {
+            font-size: 0.75rem;
+            background: rgba(255, 255, 255, 0.7);
+            border-radius: 4px;
+            padding: 2px 5px;
+            margin-left: 5px;
+            color: #475569;
+            font-weight: normal;
+        }
+
+        /* Diseño de Pestañas (Tabs) */
+        .tabs-header {
+            display: flex;
+            gap: 5px;
+            margin-top: 25px;
+            border-bottom: 2px solid #e2e8f0;
+        }
+        .tab-btn {
+            background: transparent;
+            color: #64748b;
+            border: none;
+            border-bottom: 3px solid transparent;
+            padding: 12px 20px;
+            margin: 0;
+            border-radius: 8px 8px 0 0;
+            font-weight: 600;
+            cursor: pointer;
+            width: auto;
+            transition: all 0.2s ease;
+        }
+        .tab-btn:hover {
+            background: #f1f5f9;
+            color: #334155;
+        }
+        .tab-btn.active {
+            color: #2563eb;
+            border-bottom: 3px solid #2563eb;
+        }
+        .tab-pane {
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+        .tab-pane.active {
+            display: block;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        /* --- ESTILOS DEL LABORATORIO DE QA --- */
+        .qa-controls { 
+            background: #f1f5f9; 
+            padding: 20px;
+            border-radius: 8px; 
+            border: 1px solid #cbd5e1; 
+            margin-bottom: 20px; 
+        }
+        .qa-input-group { 
+            display: flex; 
+            gap: 10px; 
+            margin-bottom: 15px; 
+        }
+        .qa-input-group input { 
+            flex: 1; 
+            padding: 10px; 
+            border-radius: 6px; 
+            border: 1px solid #94a3b8; 
+        }
+        .qa-status-card { 
+            background: white; 
+            padding: 15px; 
+            border-radius: 6px; 
+            border-left: 4px solid #2563eb; 
+            font-size: 0.9rem; 
+        }
+        .progress-bar-container { 
+            background: #e2e8f0; 
+            height: 8px; 
+            border-radius: 4px; 
+            margin-top: 10px; 
+            overflow: hidden; 
+        }
+        #qaProgressBar { 
+            height: 100%; 
+            background: #2563eb; 
+            width: 0%; 
+            transition: width 0.3s ease; 
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>🎙️ Interfaz de Adquisición</h2>
+        
+        <div class="status-box">
+            <div class="status-layout">
+                <div class="status-buttons">
+                    <button id="btnConnect">1. Conectar al Gateway</button>
+                    <button id="btnMic" disabled>2. Activar Micrófono</button>
+                </div>
+                
+                <div class="status-indicators">
+                    <p style="margin-top:0;"><strong>🌐 Red:</strong> <span id="wsStatus" style="color: #64748b;">Desconectado</span></p>
+                    <p><strong>🎤 Micrófono:</strong> <span id="micStatus" style="color: #64748b;">Inactivo</span></p>
+                    <p style="margin-bottom:0;"><strong>🛑 Noise Gate:</strong> <span id="gateStatus" style="color: #64748b;">Cerrado</span></p>
+                </div>
+            </div>
+            
+            <p style="font-size: 12px; font-weight: bold; color: #64748b; margin-bottom: 5px; margin-top: 15px;">VOLUMEN ACTUAL</p>
+            <div class="meter-bg">
+                <div class="meter" id="volumeMeter"></div>
+            </div>
+
+            <div class="slider-container">
+                <div class="slider-label">
+                    <span>🎚️ Umbral de Sensibilidad (Threshold)</span>
+                    <span id="thresholdVal" style="color: #2563eb;">0.020</span>
+                </div>
+                <input type="range" id="thresholdSlider" min="0.001" max="0.100" step="0.001" value="0.020">
+                <p style="font-size: 11px; color: #94a3b8; margin-top: 5px;">Mueve a la derecha para que el micrófono sea menos sensible (exija hablar más fuerte).</p>
+            </div>
+        </div>
+
+        <div class="tabs-header">
+            <button class="tab-btn active" onclick="switchTab(event, 'tab-transcription')">📝 Transcripción</button>
+	    <button class="tab-btn" onclick="switchTab(event, 'tab-stats')">📊 Estadísticas</button>
+            <button class="tab-btn" onclick="switchTab(event, 'tab-logs')">⚙️ Consola de Servidor</button>
+            <button class="tab-btn" onclick="switchTab(event, 'tab-qa')">🧪 Laboratorio de QA</button>
+        </div>
+
+        <div class="tabs-content">
+            
+            <div id="tab-transcription" class="tab-pane active">
+                <div class="transcription-container" style="margin-top: 15px;">
+                    <div id="final-text-area" class="final-text">
+                        <span class="placeholder-text">El texto final aparecerá aquí...</span>
+                    </div>
+                    <div id="partial-text-area" class="partial-text"></div>
+                </div>
+            </div>            <div id="tab-stats" class="tab-pane">
+                <div class="transcription-container" style="margin-top: 15px;">
+                    <h3 style="margin-top: 0; color: #1e293b;">Medición de Precisión (WER)</h3>
+                    <p style="font-size: 0.9rem; color: #64748b;">Compara la transcripción final de Whisper contra el texto real dictado.</p>
+                    
+                    <label style="font-weight: bold; font-size: 0.9rem; color: #334155;">Frase de Referencia (Edítala antes de hablar):</label>
+                    <textarea id="ref-text" style="width: 100%; height: 60px; margin-top: 8px; margin-bottom: 15px; padding: 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-family: inherit; font-size: 1rem; box-sizing: border-box;">El veloz murciélago hindú comía feliz cardillo y kiwi. La cigüeña tocaba el saxofón detrás del palenque de paja.</textarea>
+                    
+                    <button id="btnCalcWER" onclick="runWER()" style="background: #10b981; width: auto;">Estadísticas</button>
+                    
+                    <div id="wer-results" style="margin-top: 20px; padding: 15px; background: #fff; border-radius: 8px; border: 1px dashed #cbd5e1; display: none; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+                        </div>
+                </div>
+            </div>
+
+            <div id="tab-logs" class="tab-pane">
+                <pre id="log" style="margin-top: 15px; height: 300px;"></pre>
+            </div>
+
+            <div id="tab-qa" class="tab-pane">
+                <div class="transcription-container" style="margin-top: 15px;">
+                    <h3 style="margin-top: 0; color: #1e293b;">🚀 Protocolo de Inyección Automática</h3>
+                    <p style="font-size: 0.9rem; color: #64748b;">Indica la carpeta alojada en el servidor para procesar todos los audios en serie.</p>
+                    <div class="qa-controls">
+                        <div class="qa-input-group">
+                            <input type="text" id="qaFolderName" placeholder="Nombre de la carpeta (ej: qa_audios_225)">
+                            <button id="btnStartQA" style="width: auto; background: #2563eb;">**Iniciar Protocolo**</button>
+                        </div>
+                        <div class="qa-status-card">
+                            <strong>Estado:</strong> <span id="qaCurrentStatus">Esperando carpeta...</span>
+                            <div class="progress-bar-container"><div id="qaProgressBar"></div></div>
+                            <p id="qaFileCounter" style="margin: 5px 0 0 0; font-size: 11px; color: #64748b;">Procesados: 0 / 0</p>
+                        </div>
+                    </div>
+                    <div id="qaLogArea" style="height: 200px; overflow-y: auto; background: #0f172a; color: #38bdf8; padding: 10px; border-radius: 6px; font-family: monospace; font-size: 12px;">
+                        > Sistema de QA listo...
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <script>        let ws, audioContext, mediaStream, processor;
+        let isRecording = false;
+        let currentSessionId = ""; // 👈 NUEVA VARIABLE para session_id
+	window.latencyMetrics = []; // Almacena los valores de latencia
+
+        // 👇 NUEVAS VARIABLES PARA TELEMETRÍA QA 👇
+        let isQAMode = false;       
+        let qaTelemetryData = [];   
+        let qaFilesExpected = 0;
+        let qaFilesProcessed = 0;
+        let qaSessions = {}; // Diccionario para guardar el nombre de archivo y tiempo de inicio exacto
+        let qaResultResolver = null; // 👈 Manejador para pausar/reanudar el flujo de QA
+        // 👆 FIN NUEVAS VARIABLES 👆
+
+        // Configuración de Red
+        const WS_URL = "ws://localhost/ws/usr_local_test"; // Cambiar a wss://TU_IP.nip.io en GCP
+	//const WS_URL = "wss://34.26.189.156.nip.io/ws/usr_gcp_test"; // PARA CORRER en GCP
+        let NOISE_THRESHOLD = 0.020; 
+
+        // Elementos de UI
+        const btnConnect = document.getElementById('btnConnect');
+        const btnMic = document.getElementById('btnMic');
+        const slider = document.getElementById('thresholdSlider');
+        const uiElements = {
+            ws: document.getElementById('wsStatus'),
+            mic: document.getElementById('micStatus'),
+            gate: document.getElementById('gateStatus'),
+            meter: document.getElementById('volumeMeter'),
+            thresholdVal: document.getElementById('thresholdVal'),
+            log: document.getElementById('log')
+        };
+
+        slider.oninput = function() {
+            NOISE_THRESHOLD = parseFloat(this.value);
+            uiElements.thresholdVal.innerText = NOISE_THRESHOLD.toFixed(3);
+        };
+
+        function addLog(msg) {
+            uiElements.log.innerText = msg + '\n' + uiElements.log.innerText;
+        }
+
+        // ==========================================
+        // LÓGICA DE PESTAÑAS (TABS)
+        // ==========================================
+        function switchTab(event, tabId) {
+            // 1. Ocultar todos los paneles de contenido
+            const panes = document.querySelectorAll('.tab-pane');
+            panes.forEach(pane => pane.classList.remove('active'));
+
+            // 2. Deseleccionar todos los botones
+            const buttons = document.querySelectorAll('.tab-btn');
+            buttons.forEach(btn => btn.classList.remove('active'));
+
+            // 3. Activar el panel seleccionado y el botón presionado
+            document.getElementById(tabId).classList.add('active');
+            event.currentTarget.classList.add('active');
+        }
+
+        // ==========================================
+        // NUEVA FUNCIÓN: Conversor Biométrico a Base64
+        // ==========================================
+        function float32ToPCM16Base64(float32Array) {
+            // 1. Crear un arreglo de enteros de 16 bits
+            const int16Array = new Int16Array(float32Array.length);
+            
+            // 2. Convertir decimales (-1.0 a 1.0) a enteros (-32768 a 32767)
+            for (let i = 0; i < float32Array.length; i++) {
+                let s = Math.max(-1, Math.min(1, float32Array[i]));
+                int16Array[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+            }
+            
+            // 3. Convertir el arreglo de enteros a un string binario
+            const uint8Array = new Uint8Array(int16Array.buffer);
+            let binaryString = '';
+            // Procesamos en bloques para evitar desbordar la pila (Stack Overflow)
+            const chunkSize = 8192;
+            for (let i = 0; i < uint8Array.length; i += chunkSize) {
+                const chunk = uint8Array.subarray(i, i + chunkSize);
+                binaryString += String.fromCharCode.apply(null, chunk);
+            }
+            
+            // 4. Codificar a Base64 final
+            return btoa(binaryString);
+        }
+
+        // 1. Enrutamiento (WebSocket)
+        btnConnect.onclick = () => {
+            ws = new WebSocket(WS_URL);
+            
+            ws.onopen = () => {
+                uiElements.ws.innerHTML = "Conectado 🟢";
+                uiElements.ws.style.color = "#10b981";
+                btnConnect.disabled = true;
+                btnMic.disabled = false;
+                addLog("✅ Conectado al Gateway");
+            };
+
+            // Solo mostramos el timestamp recibido para no saturar la pantalla
+
+            // Capturamos los elementos del DOM
+            const finalTextArea = document.getElementById('final-text-area');
+            const partialTextArea = document.getElementById('partial-text-area');
+
+	    // Procesamos los mensajes que llegan al servidor
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    
+                    // Si el mensaje trae texto, lo procesamos
+                    if (data.text) {
+                        // Captura de Latencia (RTT)
+                        if (data.timestamp) {
+                            const now = Date.now() / 1000;
+                            const latencyMs = (now - data.timestamp) * 1000;
+                            window.latencyMetrics.push(latencyMs);
+                        }
+               
+                        // 🟢 CASO 1: Viene del ENSAMBLE MULTIMODAL (Fase 6)
+                        if (data.final_score !== undefined) {
+                            // Buscamos la burbuja gris que Whisper dejó lista
+                            const activeBubble = document.getElementById('bubble_' + data.session_id);
+    
+                            if (activeBubble) {
+                                // 👇 NUEVA LÓGICA DE TELEMETRÍA Y LIMPIEZA 👇
+                                // 👇 NUEVA LÓGICA DE TELEMETRÍA Y LIMPIEZA 👇
+                                if (isQAMode) {
+                                    const timeEnsemble = Date.now();
+                                    const metadata = data.metadata || {};
+                                    // Recuperamos el contexto de esta sesión en específico
+                                    const qaContext = qaSessions[data.session_id] || { fileName: "Desconocido", startTime: timeEnsemble };
+                                    
+                                    // 👇 NUEVO: Base de tiempo. Usamos el primer parcial. 
+                                    // (Si el audio es tan corto que solo mandó el final sin parciales, usamos el startTime como respaldo de seguridad).
+                                    const baseTimeForLatency = qaContext.firstPartialTime || qaContext.startTime;
+                                    
+                                    // Construimos el registro completo
+                                    const record = {
+                                        archivo: qaContext.fileName,
+                                        session_id: data.session_id,
+                                        texto_transcrito: data.text,
+                                        riesgo_final: data.final_score,
+                                        veredicto: data.is_aggressive ? (metadata.is_sarcastic ? "SARCASMO" : "HOSTILIDAD") : "SEGURO",
+                                        tension_voz_usada: metadata.tension_acustica,
+                                        negatividad_texto_usada: metadata.lexical_score,
+                                        heuristica_aplicada: metadata.applied_rule,
+                                        roberta_NEG: metadata.sentiment_detail?.NEG,
+                                        roberta_NEU: metadata.sentiment_detail?.NEU,
+                                        roberta_POS: metadata.sentiment_detail?.POS,
+                                        wav2vec_enojo: metadata.avg_emotion?.enojo,
+                                        wav2vec_tristeza: metadata.avg_emotion?.triste,
+                                        wav2vec_felicidad: metadata.avg_emotion?.feliz,
+                                        wav2vec_neutral: metadata.avg_emotion?.neutral,
+                                        
+                                        // 👇 NUEVOS CÁLCULOS DE LATENCIA 👇
+                                        // Tiempo desde el primer parcial hasta la burbuja gris (Transcripción completa)
+                                        latencia_transcripcion_ms: activeBubble.dataset.transcriptionTime ? (activeBubble.dataset.transcriptionTime - baseTimeForLatency) : 0,
+                                        // Tiempo desde el primer parcial hasta el veredicto final del ensamble
+                                        latencia_ensamble_ms: timeEnsemble - baseTimeForLatency
+                                        // 👆
+                                    };
+                                    
+                                    qaTelemetryData.push(record);
+                                    
+                                    // Destruir la burbuja para no saturar el DOM
+                                    activeBubble.remove(); 
+
+                                    // 👇 NUEVO: Notificar al bucle que ya llegó el resultado
+                                    if (qaResultResolver) {
+                                        const resolve = qaResultResolver;
+                                        qaResultResolver = null; // Limpiamos para evitar doble llamada
+                                        resolve(); 
+                                    }
+                                                                        
+                                    // Actualizar progreso de recepción
+                                    qaFilesProcessed++;
+                                    document.getElementById('qaFileCounter').innerText = `Calificados: ${qaFilesProcessed} / ${qaFilesExpected}`;
+                                    
+                                    // ¿Ya terminamos de recibir todo del servidor?
+                                    if (qaFilesProcessed === qaFilesExpected) {
+                                        downloadTelemetryData();
+                                        isQAMode = false; // Apagamos el modo QA solo hasta recibir todo
+                                        document.getElementById('btnStartQA').disabled = false;
+                                        document.getElementById('qaCurrentStatus').innerText = "✅ Protocolo Finalizado";
+                                        addQALog("🏁 Todas las calificaciones recibidas. Archivo descargado.");
+                                    }
+                                    
+                                    return; // Cortamos la ejecución para que NO pinte colores (modo QA puro)
+                                }
+                                // 👆 FIN NUEVA LÓGICA 👆
+
+                                activeBubble.removeAttribute('id');
+                                activeBubble.classList.remove('pending-phrase');
+        
+                                const isSarcastic = data.metadata?.is_sarcastic || false;
+                                const tensionScore = data.metadata?.tension_acustica || 0;
+                                const textScore = data.metadata?.lexical_score || 0;
+        
+                                const finalPercent = (data.final_score * 100).toFixed(1);
+                                const tensionPercent = (tensionScore * 100).toFixed(1);
+                                const textPercent = (textScore * 100).toFixed(1);
+
+                                let veredictoHTML = "";
+        
+                                if (isSarcastic) {
+                                    // Aplicamos la clase de agresión
+                                    activeBubble.classList.add('aggressive-phrase'); 
+            
+                                    // 👇 NUEVA ESTRUCTURA: Badge de sarcasmo arriba y métricas abajo
+                                    veredictoHTML = `
+                                        <div style="width: 100%; margin-bottom: 8px;">
+                                            <span class="score-badge" style="background: rgba(255,255,255,0.9); font-weight: bold; border: 2px solid #991b1b; color: #991b1b; display: inline-block;">
+                                                🎭 SARCASMO DETECTADO
+                                            </span>
+                                        </div>
+                                        <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                                            <span class="score-badge" style="background: rgba(255,255,255,0.9); font-weight: bold; border: 1px solid rgba(0,0,0,0.1);">
+                                                ⚖️ Riesgo Final: ${finalPercent}%
+                                            </span>
+                                            <span class="score-badge">🔊 Tensión Voz: ${tensionPercent}%</span>
+                                            <span class="score-badge">📝 Text (NEG): ${textPercent}%</span>
+                                        </div>
+                                    `;
+                                } else if (data.is_aggressive) {
+                                    activeBubble.classList.add('aggressive-phrase');
+                                    veredictoHTML = `
+                                        <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                                            <span class="score-badge" style="background: rgba(255,255,255,0.9); font-weight: bold; border: 1px solid rgba(0,0,0,0.1);">
+                                                ⚖️ Riesgo Final: ${finalPercent}%
+                                            </span>
+                                            <span class="score-badge">🔊 Tensión Voz: ${tensionPercent}%</span>
+                                            <span class="score-badge">📝 Text (NEG): ${textPercent}%</span>
+                                        </div>
+                                    `;
+                                } else {
+                                    activeBubble.classList.add('safe-phrase');
+                                    veredictoHTML = `
+                                        <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                                            <span class="score-badge" style="background: rgba(255,255,255,0.9); font-weight: bold; border: 1px solid rgba(0,0,0,0.1);">
+                                                ⚖️ Riesgo Final: ${finalPercent}%
+                                            </span>
+                                            <span class="score-badge">🔊 Tensión Voz: ${tensionPercent}%</span>
+                                            <span class="score-badge">📝 Text (NEG): ${textPercent}%</span>
+                                        </div>
+                                    `;
+                                }
+
+                                activeBubble.innerHTML = `
+                                    <div style="margin-bottom: 10px; font-size: 1.05rem;">${data.text}</div>
+                                    ${veredictoHTML}
+                                `;
+    
+                                finalTextArea.scrollTop = finalTextArea.scrollHeight;
+                            }
+                        }
+                        // 🟡 CASO 2: Viene de WHISPER como PARCIAL (Fase 3)
+                        else if (data.is_final === false || data.completed === false) {
+                            partialTextArea.innerText = data.text + " ✍️...";
+                            // 👇 NUEVO: Registrar el momento exacto en que llega el primer parcial
+                            if (isQAMode && qaSessions[data.session_id]) {
+                                // Solo guardamos el tiempo si no se ha guardado antes (es decir, es el primerito)
+                                if (!qaSessions[data.session_id].firstPartialTime) {
+                                    qaSessions[data.session_id].firstPartialTime = Date.now();
+                                }
+                            }
+                            // 👆 FIN NUEVO
+                        } 
+                        // ⚪ CASO 3: Viene de WHISPER como FINAL pero el Ensamble aún no responde
+                        else if (data.is_final === true || data.completed === true) {
+                            partialTextArea.innerText = ""; // Limpiamos los "✍️..."
+                            const placeholder = finalTextArea.querySelector('.placeholder-text');
+                            if (placeholder) placeholder.remove();
+
+                            // 1. Creamos la burbuja gris inmediatamente
+                            const newPhrase = document.createElement('div');
+                            newPhrase.className = 'final-phrase pending-phrase';
+                            newPhrase.id = 'bubble_' + data.session_id; // 👈 ID Dinámico! Le ponemos un ID para encontrarla después
+
+                            // 👇 NUEVO: Guardar el timestamp en el DOM de la burbuja
+                            newPhrase.dataset.transcriptionTime = Date.now();
+                            // 👆
+                            
+                            // 2. Le ponemos el texto con un indicador visual de espera
+                            newPhrase.innerHTML = `
+                                <div style="margin-bottom: 8px; font-size: 1.05rem;">
+                                    ${data.text} <span style="font-size: 0.85rem; color: #94a3b8; font-style: italic;"> ⏳ Evaluando...</span>
+                                </div>
+                            `;
+                            
+                            finalTextArea.appendChild(newPhrase);
+                            finalTextArea.scrollTop = finalTextArea.scrollHeight;
+                        }
+                    } else if (data.status) {
+                        // Logs normales de conexión o estado del Gateway
+                        addLog("🌐 " + data.status);
+                    }
+                } catch (e) {
+                    addLog("⚠️ Mensaje no JSON: " + event.data);
+                }
+            };
+         
+            ws.onclose = () => {
+                uiElements.ws.innerHTML = "Desconectado 🔴";
+                btnConnect.disabled = false;
+                btnMic.disabled = true;
+                if(isRecording) toggleMic();
+            };
+        };
+
+        // 2. Captura y Filtrado Acústico
+        btnMic.onclick = () => toggleMic();
+
+        async function toggleMic() {
+            if (isRecording) {
+                processor.disconnect();
+                mediaStream.getTracks().forEach(t => t.stop());
+                audioContext.close();
+                
+                isRecording = false;
+                btnMic.innerText = "2. Activar Micrófono";
+                btnMic.classList.remove('danger');
+                uiElements.mic.innerHTML = "Inactivo";
+                uiElements.meter.style.width = "0%";
+                uiElements.meter.classList.remove('meter-peak');
+                uiElements.gate.innerHTML = "Cerrado";
+                addLog("🛑 Micrófono apagado.");
+                return;
+            }
+
+            try {
+                // 👇 NUEVO: Reseteo automático al iniciar nueva grabación 👇
+                const finalTextArea = document.getElementById('final-text-area');
+                if (finalTextArea) {
+                    finalTextArea.innerHTML = '<span class="placeholder-text">El texto final aparecerá aquí...</span>';
+                }
+                const werResults = document.getElementById('wer-results');
+                if (werResults) {
+                    werResults.style.display = 'none'; // Ocultamos resultados viejos
+                }
+		window.latencyMetrics = []; // 👈 Limpiamos el historial de latencia
+                // 👆 FIN DEL RESETEO 👆
+
+                mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+                const source = audioContext.createMediaStreamSource(mediaStream);
+                
+                processor = audioContext.createScriptProcessor(4096, 1, 1);
+                source.connect(processor);
+                processor.connect(audioContext.destination);
+
+                // MAGIA AVANZADA: Variables del Búfer y Tiempos
+                let audioBuffer = [];
+                let silenceTimer = null;
+                let lastPartialTime = Date.now(); // Cronómetro para parciales
+                let liveChunkCounter = 0; // 👈 NUEVO: Contador para el micro
+
+                // Función auxiliar para empaquetar y enviar a Redis
+                const sendAudioToBackend = (isFinal) => {
+                    if (audioBuffer.length === 0) return;
+                    
+                    let totalLength = audioBuffer.reduce((acc, val) => acc + val.length, 0);
+                    let mergedBuffer = new Float32Array(totalLength);
+                    let offset = 0;
+                    for(let chunk of audioBuffer) {
+                        mergedBuffer.set(chunk, offset);
+                        offset += chunk.length;
+                    }
+                    
+                    const base64Audio = float32ToPCM16Base64(mergedBuffer);
+
+                    liveChunkCounter++; // Incrementamos por cada envío (parcial o final)
+                    const payload = {
+                        "session_id": currentSessionId, // 👈 EL identificador para los paquetes
+                        "chunk_id": liveChunkCounter, // 👈 Enviamos el conteo actual
+                        "timestamp": Date.now() / 1000,
+                        "is_final": isFinal, // Le decimos al cerebro si ya terminamos
+                        "audio_b64": base64Audio
+                    };
+
+                    // Si es el mensaje final, incluimos el total acumulado
+                    if (isFinal) {
+                        payload.total_chunks = liveChunkCounter; // 👈 El Ensamble ahora sabe cuántos esperar
+                        liveChunkCounter = 0; // Reseteamos para la siguiente frase
+                    }
+
+                    if(ws && ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify(payload));
+                    }
+                };
+
+                processor.onaudioprocess = (e) => {
+                    const float32Array = e.inputBuffer.getChannelData(0);
+                    
+                    let sumSquares = 0;
+                    for (let i = 0; i < float32Array.length; i++) {
+                        sumSquares += float32Array[i] * float32Array[i];
+                    }
+                    const rms = Math.sqrt(sumSquares / float32Array.length);
+
+                    uiElements.meter.style.width = Math.min(100, rms * 500) + '%';
+                    
+                    if (rms > NOISE_THRESHOLD) {
+                        uiElements.gate.innerHTML = "Abierto 🟢 (Hablando...)";
+                        uiElements.meter.classList.add('meter-peak');
+
+                        // 👇 NUEVO: Generamos el ID solo si es una frase nueva (audioBuffer vacío)
+                        if (audioBuffer.length === 0) {
+                            currentSessionId = "sess_" + Date.now() + "_" + Math.random().toString(36).substr(2, 5);
+                            addLog(`🆕 Nueva frase iniciada: ${currentSessionId}`);
+                        }
+                        
+                        // 1. Guardamos el audio en la caja fuerte
+                        audioBuffer.push(new Float32Array(float32Array));
+                        clearTimeout(silenceTimer);
+                        
+                        // 2. MAGIA DE TIEMPO REAL: Si han pasado 1000ms o 500ms, enviamos un Parcial
+                        if (Date.now() - lastPartialTime > 1000) {
+                            sendAudioToBackend(false); // is_final = false
+                            lastPartialTime = Date.now();
+                        }
+                        
+                        // 3. El cierre Final (1 segundo de silencio)
+                        silenceTimer = setTimeout(() => {
+                            uiElements.gate.innerHTML = "Procesando ⏳ (Final)";
+                            sendAudioToBackend(true); // is_final = true
+                            audioBuffer = []; // Vaciamos la caja fuerte para la siguiente oración
+                            uiElements.gate.innerHTML = "Cerrado 🛑 (Esperando voz)";
+                        }, 1000);
+                        
+                    } else {
+                        uiElements.meter.classList.remove('meter-peak');
+                    }
+                };
+
+                isRecording = true;
+                btnMic.innerText = "3. Detener Micrófono";
+                btnMic.classList.add('danger');
+                uiElements.mic.innerHTML = "Grabando 🎙️";
+                addLog("🎤 Habla una oración completa. El audio se enviará 1 segundo después de que termines de hablar.");
+
+            } catch (err) {
+                addLog("❌ Error: " + err.message);
+            }
+        }
+
+        // ==========================================
+        // MOTOR DE ESTADÍSTICAS: CÁLCULO DE WER
+        // ==========================================
+        
+        // Algoritmo de Distancia de Levenshtein (Nivel Palabras)
+        function calculateLevenshtein(refWords, hypWords) {
+            const m = refWords.length;
+            const n = hypWords.length;
+            const dp = Array(m + 1).fill(null).map(() => Array(n + 1).fill(0));
+
+            for (let i = 0; i <= m; i++) dp[i][0] = i;
+            for (let j = 0; j <= n; j++) dp[0][j] = j;
+
+            for (let i = 1; i <= m; i++) {
+                for (let j = 1; j <= n; j++) {
+                    if (refWords[i - 1] === hypWords[j - 1]) {
+                        dp[i][j] = dp[i - 1][j - 1]; // Son iguales, no hay costo
+                    } else {
+                        dp[i][j] = Math.min(
+                            dp[i - 1][j] + 1,    // Eliminación
+                            dp[i][j - 1] + 1,    // Inserción
+                            dp[i - 1][j - 1] + 1 // Sustitución
+                        );
+                    }
+                }
+            }
+            return dp[m][n];
+        }
+
+        function runWER() {
+            // 1. Obtener la referencia
+            const refText = document.getElementById('ref-text').value;
+            
+            // 2. Extraer todo el texto transcrito de la pestaña 1
+            // 👇 NUEVO PASO 2: Extracción inteligente (Solo la transcripción)
+            const hypArea = document.getElementById('final-text-area');
+            let extractedText = "";
+            
+            // Seleccionamos todas las burbujas de chat
+            const bubbles = hypArea.querySelectorAll('.final-phrase');
+            bubbles.forEach(bubble => {
+                // El texto real SIEMPRE está en el primer <div> de la burbuja
+                const textDiv = bubble.querySelector('div'); 
+                
+                if (textDiv) {
+                    // Clonamos el div en memoria para poder manipularlo sin romper la UI visual
+                    const clone = textDiv.cloneNode(true);
+                    
+                    // Si la frase aún dice "⏳ Evaluando...", eliminamos ese span del clon
+                    // para que la palabra "Evaluando" no se cuente como un error de transcripción
+                    const evaluatingSpan = clone.querySelector('span');
+                    if (evaluatingSpan) evaluatingSpan.remove();
+                    
+                    // Sumamos el texto limpio
+                    extractedText += clone.textContent + " ";
+                }
+            });
+
+            const hypText = extractedText.trim();
+            // 👆 FIN DEL NUEVO PASO 2
+
+            // 3. Normalizar: Quitar puntuación y pasar a minúsculas
+            const clean = (str) => str.toLowerCase().replace(/[.,!?;:()¿¡]/g, '').trim();
+            const refWords = clean(refText).split(/\s+/).filter(w => w.length > 0);
+            const hypWords = clean(hypText).split(/\s+/).filter(w => w.length > 0);
+
+            const resultsDiv = document.getElementById('wer-results');
+            resultsDiv.style.display = 'block';
+
+            // Validaciones de seguridad
+            if (refWords.length === 0) {
+                resultsDiv.innerHTML = "<strong style='color: #ef4444;'>Error:</strong> La caja de referencia está vacía.";
+                return;
+            }
+            if (hypWords.length === 0) {
+                resultsDiv.innerHTML = "<strong style='color: #f59e0b;'>Aviso:</strong> Aún no hay transcripción de IA para evaluar.";
+                return;
+            }
+
+            // 4. Calcular el motor
+            const errors = calculateLevenshtein(refWords, hypWords);
+            
+            // 5. Obtener porcentajes
+            const wer = (errors / refWords.length) * 100;
+            const precision = Math.max(0, 100 - wer);
+
+            // 6. Colorear semáforo según el resultado
+            let color = wer <= 10 ? '#10b981' : (wer <= 30 ? '#f59e0b' : '#ef4444');
+            
+            // 7. Imprimir Dashboard
+            // --- NUEVO BLOQUE DE LATENCIA ---
+            let latencyHTML = "<p style='color: #64748b; font-size: 0.9rem; margin-top: 20px;'>No hay datos de latencia.</p>";
+            
+            if (window.latencyMetrics.length > 0) {
+                // Ordenar las latencias de menor a mayor
+                const sorted = [...window.latencyMetrics].sort((a, b) => a - b);
+                
+                // Función auxiliar para calcular percentiles
+                const getPercentile = (p) => {
+                    const index = (p / 100) * (sorted.length - 1);
+                    const lower = Math.floor(index);
+                    const upper = Math.ceil(index);
+                    const weight = index - lower;
+                    if (upper >= sorted.length) return sorted[lower];
+                    return sorted[lower] * (1 - weight) + sorted[upper] * weight;
+                };
+
+                const p25 = getPercentile(25);
+                const p50 = getPercentile(50); // Mediana
+                const p75 = getPercentile(75);
+                const p90 = getPercentile(90); // Caso límite
+
+                // Para la gráfica, tomamos el valor máximo (o p90 + un margen) como el 100% del ancho
+                const maxLat = Math.max(p90 * 1.2, 100); 
+
+                // Constructor de barras CSS
+                const drawBar = (label, val, color) => `
+                    <div style="display: flex; align-items: center; margin-bottom: 8px;">
+                        <div style="width: 40px; font-weight: bold; color: #475569; font-size: 0.85rem;">${label}</div>
+                        <div style="flex: 1; background: #f1f5f9; border-radius: 4px; height: 12px; overflow: hidden; margin: 0 10px;">
+                            <div style="width: ${Math.min((val / maxLat) * 100, 100)}%; background: ${color}; height: 100%; border-radius: 4px;"></div>
+                        </div>
+                        <div style="width: 70px; text-align: right; color: #64748b; font-size: 0.85rem; font-family: monospace;">${val.toFixed(0)} ms</div>
+                    </div>
+                `;
+
+                latencyHTML = `
+                    <div style="margin-top: 25px; padding-top: 15px; border-top: 1px dashed #cbd5e1;">
+                        <h4 style="margin: 0 0 15px 0; color: #334155; font-size: 1rem;">⏱️ Latencia del Sistema (RTT)</h4>
+                        ${drawBar('p25', p25, '#10b981')}  ${drawBar('p50', p50, '#3b82f6')}  ${drawBar('p75', p75, '#f59e0b')}  ${drawBar('p90', p90, '#ef4444')}  </div>
+                `;
+            }
+
+            // 7. Imprimir Dashboard (WER + Latencia)
+            resultsDiv.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                    <div style="flex: 1; min-width: 150px; color: #475569; font-size: 0.95rem;">
+                        <p style="margin: 5px 0;">🎯 Palabras Base: <strong>${refWords.length}</strong></p>
+                        <p style="margin: 5px 0;">🤖 Palabras IA: <strong>${hypWords.length}</strong></p>
+                        <p style="margin: 5px 0;">⚠️ Total Errores: <strong>${errors}</strong></p>
+                    </div>
+                    
+                    <div style="text-align: center; flex: 1; border-left: 1px solid #e2e8f0; padding-left: 10px;">
+                        <h2 style="margin: 0; color: ${color}; font-size: 2rem;">${wer.toFixed(2)}%</h2>
+                        <span style="font-size: 0.85rem; color: #64748b; font-weight: bold;">WER</span>
+                    </div>
+                    
+                    <div style="text-align: center; flex: 1; border-left: 1px solid #e2e8f0; padding-left: 10px;">
+                        <h2 style="margin: 0; color: #2563eb; font-size: 2rem;">${precision.toFixed(2)}%</h2>
+                        <span style="font-size: 0.85rem; color: #64748b; font-weight: bold;">Precisión</span>
+                    </div>
+                </div>
+                ${latencyHTML}
+            `;
+        }
+        // ==========================================
+        // 🧪 MOTOR DE QA AUTOMÁTICO (FOLDER INJECTOR)
+        // ==========================================
+        const qaFolderNameInput = document.getElementById('qaFolderName');
+        const btnStartQA = document.getElementById('btnStartQA');
+        const qaLogArea = document.getElementById('qaLogArea');
+        const qaProgressBar = document.getElementById('qaProgressBar');
+        const qaFileCounter = document.getElementById('qaFileCounter');
+        const qaCurrentStatus = document.getElementById('qaCurrentStatus');
+
+        function addQALog(msg) {
+            const time = new Date().toLocaleTimeString();
+            qaLogArea.innerHTML += `<div><span style="color: #94a3b8">[${time}]</span> ${msg}</div>`;
+            qaLogArea.scrollTop = qaLogArea.scrollHeight;
+        }
+
+        btnStartQA.onclick = async () => {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                alert("⚠️ ¡Alto ahí! Debes hacer clic en '1. Conectar al Gateway' antes de iniciar la inyección.");
+                addQALog("<span style='color: #ef4444'>❌ Error: No hay conexión al servidor WebSocket.</span>");
+                return;
+            }
+
+            const folder = qaFolderNameInput.value.trim();
+            if (!folder) {
+                alert("Por favor, indica el nombre de la carpeta.");
+                return;
+            }
+
+            btnStartQA.disabled = true;
+            addQALog(`📂 Accediendo a carpeta: ${folder}`);
+            qaCurrentStatus.innerText = "Obteniendo lista de archivos...";
+
+            try {
+                const response = await fetch(`./${folder}/archivos.json`);
+                if (!response.ok) throw new Error("No se encontró archivos.json en la carpeta.");
+                
+                const fileList = await response.json();
+                
+                // 👇 CONFIGURACIÓN INICIAL DE TELEMETRÍA 👇
+                qaFilesExpected = fileList.length;
+                qaFilesProcessed = 0;
+                qaTelemetryData = [];
+                qaSessions = {};
+                isQAMode = true;
+                // 👆
+
+                addQALog(`✅ Se encontraron ${qaFilesExpected} archivos.`);
+
+                for (let i = 0; i < qaFilesExpected; i++) {
+                    const fileName = fileList[i];
+                    const progress = ((i + 1) / qaFilesExpected) * 100;
+                    
+                    qaCurrentStatus.innerText = `Procesando: ${fileName}`;
+                    qaProgressBar.style.width = `${progress}%`;
+                    addQALog(`🚀 Inyectando: ${fileName}...`);
+                    
+                    // 1. Enviamos el audio completo al clúster
+                    await injectRemoteFile(folder, fileName);
+                    
+                    // 2. 👇 CAMBIO CLAVE: Bloqueamos el bucle hasta recibir la respuesta
+                    await new Promise(resolve => {
+                        qaResultResolver = resolve;
+                        
+                        // ⏱️ TIMEOUT DE SEGURIDAD (90 segundos)
+                        // Si el clúster se traba, saltamos al siguiente archivo para no detener la prueba
+                        setTimeout(() => {
+                            if (qaResultResolver === resolve) {
+                                addQALog(`⚠️ Timeout en ${fileName} (90s sin respuesta). Saltando...`);
+                                qaResultResolver = null;
+                                resolve();
+                            }
+                        }, 90000); 
+                    });
+
+                    // Pequeña pausa técnica para que el Gateway "respire" entre sesiones
+                    await new Promise(r => setTimeout(r, 500)); 
+                }
+
+                // 👇 IMPORTANTE: Aquí NO descargamos el TXT ni apagamos isQAMode.
+                // El websocket (arriba) se encargará de hacerlo cuando llegue la última respuesta.
+                qaCurrentStatus.innerText = "⏳ Esperando resultados del servidor...";
+                addQALog("📡 Audios inyectados. Esperando evaluación del Ensamble...");
+                // 👆
+
+            } catch (err) {
+                addLog(`❌ Error QA: ${err.message}`);
+                addQALog(`<span style="color: #ef4444">❌ Error: ${err.message}</span>`);
+                btnStartQA.disabled = false;
+                isQAMode = false;
+            }
+        };
+
+        async function injectRemoteFile(folder, fileName) {
+            // Generar un ID único para esta frase de prueba
+            currentSessionId = "qa_" + fileName.split('.')[0];
+            
+            // 👇 NUEVO: Guardamos el tiempo de inicio atado a este ID específico
+            qaSessions[currentSessionId] = {
+                fileName: fileName,
+                startTime: Date.now()
+            };
+            // 👆
+            
+            // 1. Descargar el archivo desde el servidor
+            const response = await fetch(`./${folder}/${fileName}`);
+            const arrayBuffer = await response.arrayBuffer();
+
+            // 2. Decodificar
+            const tempCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+            const audioBuffer = await tempCtx.decodeAudioData(arrayBuffer);
+            const channelData = audioBuffer.getChannelData(0);
+            
+            // 3. Simular Stream por WebSocket
+            const chunkSize = 16000; 
+
+            // 👇 NUEVO: Cálculo anticipado del total de segmentos
+            const totalChunks = Math.ceil(channelData.length / chunkSize);
+            let offset = 0;
+            let chunkId = 0; 
+
+            return new Promise((resolve) => {
+                const sendNextChunk = () => {
+                    // Calculamos el final del chunk actual
+                    const end = Math.min(offset + chunkSize, channelData.length);
+                    
+                    // 👇 EL CAMBIO CRUCIAL: Enviar desde el inicio (0) hasta el final actual (end),
+                    // para que Whisper tenga el contexto acumulado de la oración.
+                    const accumulatedAudio = channelData.slice(0, end);
+                    
+                    // ¿Es este el último chunk que vamos a enviar?
+                    const isLastChunk = end >= channelData.length;
+                    chunkId++; // Incrementamos el ID del segmento
+
+                    // Enviamos el audio acumulado
+                    ws.send(JSON.stringify({
+                        "session_id": currentSessionId,
+                        "chunk_id": chunkId,          // 👈 Enviamos ID actual
+                        "total_chunks": totalChunks,  // 👈 Enviamos meta final
+                        "timestamp": Date.now() / 1000,
+                        "is_final": isLastChunk, 
+                        "audio_b64": float32ToPCM16Base64(accumulatedAudio) // 👈 Enviamos el acumulado
+                    }));
+
+                    offset = end; // Actualizamos el offset para el siguiente ciclo
+
+                    if (isLastChunk) resolve();
+                    else setTimeout(sendNextChunk, 1000); 
+                };
+                sendNextChunk();
+            });
+        }
+
+        // ==========================================
+        // 📥 DESCARGA DE TELEMETRÍA
+        // ==========================================
+        function downloadTelemetryData() {
+            if (qaTelemetryData.length === 0) return;
+
+            // 1. Obtener todas las cabeceras de las llaves del objeto
+            const headers = Object.keys(qaTelemetryData[0]);
+            
+            // 2. Crear las filas separadas por tabulaciones (\t)
+            const rows = qaTelemetryData.map(obj => {
+                return headers.map(header => {
+                    let val = obj[header];
+                    // Formatear números a 4 decimales si son floats
+                    if (typeof val === 'number' && !Number.isInteger(val)) {
+                        return val.toFixed(4);
+                    }
+                    return val !== undefined ? val : 'N/A';
+                }).join('\t');
+            });
+
+            // 3. Unir cabeceras y filas con saltos de línea
+            const tsvContent = headers.join('\t') + '\n' + rows.join('\n');
+
+            // 4. Crear el archivo Blob y forzar descarga
+            const blob = new Blob([tsvContent], { type: 'text/tab-separated-values;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `QA_Resultados_${Date.now()}.txt`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            addQALog(`💾 Archivo descargado con ${qaTelemetryData.length} registros.`);
+            qaTelemetryData = []; // Limpiar para la próxima prueba
+        }
+    </script>
+</body>
+</html>

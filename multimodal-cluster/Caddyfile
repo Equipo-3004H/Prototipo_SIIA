@@ -1,0 +1,17 @@
+# Forzamos HTTP en el puerto 80 para desarrollo local
+http://localhost:80 {
+
+# 1. Tu dominio mágico con tu IP real (cambiar por IP_PUBLICA  de GCP)
+#34.26.189.156.nip.io {
+    
+    # 2. Servir la interfaz gráfica (Frontend) de forma segura por HTTPS
+    handle_path /* {
+        root * /var/www/html
+        file_server
+    }
+
+    # 3. Enrutar el tráfico de WebSocket hacia el Gateway de Python
+    handle /ws/* {
+        reverse_proxy ws_gateway:8000
+    }
+}
